@@ -2,21 +2,20 @@ package ru.shevkoplyas;
 
 import com.codeborne.pdftest.PDF;
 import com.codeborne.xlstest.XLS;
-import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
+
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.List;
+import java.util.Objects;
 import java.util.Scanner;
-import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+
+import net.lingala.zip4j.core.ZipFile;
+
 
 import static com.codeborne.pdftest.assertj.Assertions.assertThat;
 import static com.codeborne.selenide.Condition.text;
@@ -35,35 +34,43 @@ public class SelenideFileTest {
 
     }
 
-    /*
-            @Test
-            void ReadTxtTest() throws Exception {
-                String result;
-                try (InputStream is = getClass().getClassLoader().getResourceAsStream("sample1.txt")) {
-                    result = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-                }
-                assertThat(result).contains("Utilitatis causa amicitia est quaesita");
-            }
-    */
+
+    @Test
+    void ReadTxtTest() throws Exception {
+        String contentsTxt = "Utilitatis causa amicitia est quaesita.";
+        String fileTxt = "sample1.txt";
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream(fileTxt)) {
+            Scanner sc = new Scanner(Objects.requireNonNull(is)).useDelimiter("\\A");
+            String text = sc.hasNext() ? sc.next() : "";
+            assertThat(text).contains(contentsTxt);
+        }
+    }
+
     @Test
     void readPdfTest() throws Exception {
-        PDF parsed = new PDF(getClass().getClassLoader().getResourceAsStream("sample2.pdf"));
-        assertThat(parsed.text).contains("Lorem ipsum");
+        String pdfFile = "sample2.pdf";
+        String contentsPdf = "Lorem ipsum";
+        PDF parsed = new PDF(getClass().getClassLoader().getResourceAsStream(pdfFile));
+        assertThat(parsed.text).contains(contentsPdf);
         assertThat(parsed.numberOfPages).isEqualTo(4);
     }
 
     @Test
     void readExcelTest() throws Exception {
-        try (InputStream stream = getClass().getClassLoader().getResourceAsStream("sample3.xlsx")) {
+        String excelFile = "sample3.xlsx";
+        String contentsExcel = "Ivanov";
+        try (InputStream stream = getClass().getClassLoader().getResourceAsStream(excelFile)) {
             XLS parsed = new XLS(stream);
             assertThat(parsed.excel.getSheetAt(1).getRow(1).getCell(0).getStringCellValue())
-                    .isEqualTo("Ivanov");
+                    .isEqualTo(contentsExcel);
         }
     }
 
     @Test
     void readDocTest() throws Exception {
-        try (InputStream file = getClass().getClassLoader().getResourceAsStream("sample4.docx")) {
+        String docxFile = "sample4.docx";
+        String contentsDocx = "Example text for a test.";
+        try (InputStream file = getClass().getClassLoader().getResourceAsStream(docxFile)) {
             XWPFDocument document = new XWPFDocument(file);
             StringBuilder text = new StringBuilder();
             List<XWPFParagraph> paragraphs = document.getParagraphs();
@@ -71,38 +78,58 @@ public class SelenideFileTest {
             for (XWPFParagraph para : paragraphs) {
                 text.append(para.getText());
             }
-            assertThat(text.toString().contains("Example text for a test."));
+            assertThat(text.toString().contains(contentsDocx));
         }
     }
 
     @Test
     void readDoc2Test() throws Exception {
-        try (InputStream file = getClass().getClassLoader().getResourceAsStream("sample4.docx")) {
+        String docxFile = "sample4.docx";
+        String contentsDocx = "Example text for a test.";
+        try (InputStream file = getClass().getClassLoader().getResourceAsStream(docxFile)) {
             XWPFDocument document = new XWPFDocument(file);
             XWPFWordExtractor xwpfWordExtractor = new XWPFWordExtractor(document);
             String docText = xwpfWordExtractor.getText();
-            assertThat(docText.contains("Example text for a test."));
+            assertThat(docText.contains(contentsDocx));
         }
 
     }
 
     @Test
-    void zipFileTest() throws Exception {
-        try (InputStream is = getClass().getClassLoader().getResourceAsStream("sample1.zip")) {
+    void zipFileNoPasswordTest() throws Exception {
+        String zipArchive = "samplenopass1.zip";
+        String zipContents = "Utilitatis causa amicitia est quaesita";
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream(zipArchive)) {
             ZipInputStream zis = new ZipInputStream(is);
-            ZipEntry entry;
+            zis.getNextEntry();
             Scanner sc = new Scanner(zis);
             while (sc.hasNext()) {
-                System.out.println(sc.nextLine());
+                assertThat(sc.nextLine().contains(zipContents));
             }
 
-//        String zipFilePath = "src/test/resources/sample1.zip";
-//        String unzipFilePath = "src/test/resources/unzipped";
-//        String zipPassword = "1234";
-        }
 
+        }
+    }
+
+    @Test
+    void zipFileWithPasswordTest() throws Exception {
+        try {
+            String password = "1234";
+            String zipContents = "Utilitatis causa amicitia est quaesita";
+            String zipPath = "src/test/resources/samplepass1.zip";
+            String unzippedPath = ".src/test/resources/unzipped/";
+            ZipFile zipFile = new ZipFile(zipPath);
+            if (zipFile.isEncrypted())
+                zipFile.setPassword(password.toCharArray());
+            zipFile.extractAll(unzippedPath);
+            assertThat(zipFile.getFileHeaders().get(1).toString().contains(zipContents));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
+
 
 
 
